@@ -12,37 +12,44 @@ let rats = [
 let activeRat = null;
 let sensor2Triggered = false;
 
-// === VIRTUAL DATABASE STATE ===
+// === VIRTUAL DATABASE STATE (matches real Firebase RTDB structure) ===
 let firebaseState = {
     status: {
-        pintu: "Terbuka",
+        pintu: "terbuka",
         tikusDitangkap: 0,
         sesi: 1,
         online: true,
         batteryVoltage: "4.12",
         batteryPercent: 92,
-        camBaseUrl: "http://192.168.1.88"
+        camBaseUrl: "http://192.168.1.88",
+        camIp: "192.168.1.88",
+        camFlash: "OFF",
+        ir1_masuk: "TIDAK ADA",
+        ir2_hitung: "TIDAK ADA",
+        penuh: false,
+        servoAngle: 90,
+        lastSeen: 0,
+        debugLog: "Sistem siap."
     },
     control: {
         buzzer: false,
         relayKamera: false,
+        camFlash: false,
         notifEnabled: true,
         deleteHistoryCommand: ""
     },
     notifikasi: ""
 };
 
-// === DUMMY SESSION HISTORY ===
-let sessionHistory = [
-    {
-        sesiKe: 1,
+// === DUMMY SESSION HISTORY (key format: sesi_1, sesi_2, ...) ===
+let sessionHistory = {
+    sesi_1: {
         entries: [
             { status_pintu: "Tikus Tertangkap", tikus_ke: 1, waktu: Date.now() - 3600000 * 3 },
-            { status_pintu: "Pintu Tertutup", tikus_ke: 1, waktu: Date.now() - 3600000 * 3 - 60000 },
-            { status_pintu: "Pintu Terbuka", tikus_ke: 0, waktu: Date.now() - 3600000 * 3 - 120000 }
+            { status_pintu: "Pintu Terbuka", tikus_ke: 1, waktu: Date.now() - 3600000 * 3 - 60000 }
         ]
     }
-];
+};
 
 // === INITIAL CONFIGURATION ===
 document.addEventListener("DOMContentLoaded", () => {
@@ -100,16 +107,23 @@ function syncUI() {
     }
 
     // 2. Home Tab values
-    document.getElementById("viewStatusPintu").textContent = firebaseState.status.pintu;
+    // Map firebase lowercase pintu + ir/penuh flags to user-friendly display text
+    let pintuDisplay = "Terbuka";
+    if (firebaseState.status.penuh) {
+        pintuDisplay = "Penuh (5 Tikus)";
+    } else if (firebaseState.status.pintu === "tertutup") {
+        pintuDisplay = (firebaseState.status.ir1_masuk === "ADA") ? "Tertutup (Tikus Masuk)" : "Tertutup";
+    }
+    document.getElementById("viewStatusPintu").textContent = pintuDisplay;
     document.getElementById("viewTikusDitangkap").textContent = firebaseState.status.tikusDitangkap;
     document.getElementById("viewSesi").textContent = firebaseState.status.sesi;
     
     // Highlight door state
     const pintuSpan = document.getElementById("viewStatusPintu");
-    if (firebaseState.status.pintu.includes("Tertangkap") || firebaseState.status.pintu.includes("Penuh") || firebaseState.status.pintu.includes("Terjebak") || firebaseState.status.pintu === "Tertutup") {
+    if (firebaseState.status.pintu === "tertutup" || firebaseState.status.penuh) {
         pintuSpan.style.color = "var(--color-red)";
         if (wfTrapPintuText) {
-            wfTrapPintuText.textContent = `Pintu: ${firebaseState.status.pintu}`;
+            wfTrapPintuText.textContent = `Pintu: Tertutup`;
             wfTrapPintuText.style.fill = "var(--color-red)";
         }
     } else {
@@ -211,35 +225,36 @@ function syncUI() {
     renderHistoryList();
 }
 
-// Renders the session history on screen
+// Renders the session history on screen (sessionHistory is keyed as sesi_1, sesi_2, ...)
 function renderHistoryList() {
     const container = document.getElementById("sessionsContainer");
     container.innerHTML = "";
 
-    if (sessionHistory.length === 0) {
+    const sesiKeys = Object.keys(sessionHistory).sort((a, b) => {
+        // Sort numerically: sesi_1 < sesi_2 etc
+        return parseInt(a.split('_')[1]) - parseInt(b.split('_')[1]);
+    });
+
+    if (sesiKeys.length === 0) {
         container.innerHTML = `<div class="empty-history-text">Belum ada riwayat penangkapan.</div>`;
         return;
     }
 
-    // Sort sessions in ascending order (Sesi 1, 2, 3...)
-    const sortedSessions = [...sessionHistory].sort((a, b) => a.sesiKe - b.sesiKe);
-
-    sortedSessions.forEach(session => {
+    sesiKeys.forEach(key => {
+        const session = sessionHistory[key];
+        const sesiNum = key.split('_')[1];
         const card = document.createElement("div");
         card.className = "session-card";
         
         let entriesHTML = "";
-        
-        // Show top 5 entries
         const displayEntries = [...session.entries]
-            .sort((a,b) => b.waktu - a.waktu) // newest to oldest
+            .sort((a,b) => b.waktu - a.waktu)
             .slice(0, 5)
-            .reverse(); // display oldest to newest in rows
+            .reverse();
 
         displayEntries.forEach(entry => {
             const date = new Date(entry.waktu);
             const timeStr = date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            
             entriesHTML += `
                 <div class="session-entry-row">
                     <span class="entry-status">${entry.status_pintu} ${entry.tikus_ke > 0 ? '(Tikus Ke-' + entry.tikus_ke + ')' : ''}</span>
@@ -253,12 +268,11 @@ function renderHistoryList() {
         }
 
         card.innerHTML = `
-            <div class="session-title">Sesi ${session.sesiKe}</div>
+            <div class="session-title">Sesi ${sesiNum}</div>
             <div class="session-entries-container">
                 ${entriesHTML}
             </div>
         `;
-        
         container.appendChild(card);
     });
 }
@@ -615,13 +629,18 @@ function setupSimulatorControls() {
         // Advance to next session
         firebaseState.status.sesi = nextSesi;
         firebaseState.status.tikusDitangkap = 0;
-        firebaseState.status.pintu = "Terbuka";
+        firebaseState.status.pintu = "terbuka";
+        firebaseState.status.ir1_masuk = "TIDAK ADA";
+        firebaseState.status.ir2_hitung = "TIDAK ADA";
+        firebaseState.status.penuh = false;
+        firebaseState.status.servoAngle = 90;
+        firebaseState.status.debugLog = `Sesi ${nextSesi} dimulai. Perangkap dikosongkan secara fisik.`;
         
-        // Add new session in history
-        let session = { sesiKe: nextSesi, entries: [] };
-        sessionHistory.push(session);
+        // Add new session in history (sesi_N format)
+        const sesiKey = `sesi_${nextSesi}`;
+        sessionHistory[sesiKey] = { entries: [] };
         const now = Date.now();
-        session.entries.push({ status_pintu: "Pintu Terbuka", tikus_ke: 0, waktu: now });
+        sessionHistory[sesiKey].entries.push({ status_pintu: "Pintu Terbuka", tikus_ke: 0, waktu: now });
 
         firebaseState.notifikasi = `Sesi ${nextSesi} dimulai. Perangkap telah dikosongkan secara fisik.`;
 
@@ -641,8 +660,12 @@ function setupSimulatorControls() {
             return;
         }
 
-        firebaseState.status.pintu = "Terbuka";
-        activeRat = null; // clear active rat animation
+        firebaseState.status.pintu = "terbuka";
+        firebaseState.status.ir1_masuk = "TIDAK ADA";
+        firebaseState.status.ir2_hitung = "TIDAK ADA";
+        firebaseState.status.servoAngle = 90;
+        firebaseState.status.debugLog = "Manual reset - Pintu terbuka.";
+        activeRat = null;
         
         syncUI();
         updateDatabaseViewer();
@@ -983,7 +1006,7 @@ function setupCameraSimulation() {
 
         // Draw Entrance Slide Door (Left of Cage 1)
         const doorX = 20;
-        if (firebaseState.status.pintu === "Terbuka") {
+        if (firebaseState.status.pintu === "terbuka") {
             if (doorHeight > 0) doorHeight -= 3;
         } else {
             if (doorHeight < 80) doorHeight += 12; // Snap closed
@@ -1071,20 +1094,23 @@ function setupCameraSimulation() {
             // Check if reached cheese
             if (activeRat.x >= 80) {
                 activeRat.x = 80;
-                // Snap door shut!
-                firebaseState.status.pintu = "Tertangkap/Lepas"; // Transient status (Sensor 1 triggered)
+                // Sensor 1 triggered: door closes
+                firebaseState.status.ir1_masuk = "ADA";
+                firebaseState.status.pintu = "tertutup";
+                firebaseState.status.servoAngle = 0;
+                firebaseState.status.debugLog = "IR1 ADA - Pintu tertutup (servo=0)";
                 
                 // Play alert sound
                 playAlertBeep();
 
-                // Always go to waiting_choice — user can now choose tunnel or escape via the simulator buttons
+                // Always go to waiting_choice - user can now choose tunnel or escape via the simulator buttons
                 activeRat.stage = "waiting_choice";
                 
                 syncUI();
                 updateDatabaseViewer();
 
                 triggerWorkflowPulse("trap_to_app", () => {
-                    showLocalNotification("Perangkap Tikus", "Sensor 1 aktif! Tikus terdeteksi di Kotak 1. Status: Tertangkap/Lepas");
+                    showLocalNotification("Perangkap Tikus", "Sensor IR1 aktif! Tikus terdeteksi di Kotak 1. Pintu tertutup.");
                 });
             }
         } 
@@ -1123,20 +1149,20 @@ function setupCameraSimulation() {
             // At 5 seconds (300 frames elapsed, 0 remaining)
             if (activeRat.timer <= 0) {
                 firebaseState.control.buzzer = false;
-                firebaseState.status.pintu = "Terbuka";
+                firebaseState.status.pintu = "terbuka";
+                firebaseState.status.ir1_masuk = "TIDAK ADA";
+                firebaseState.status.servoAngle = 90;
+                firebaseState.status.debugLog = "Timeout - Tikus meloloskan diri. Pintu dibuka.";
                 
                 const activeSesi = firebaseState.status.sesi;
                 firebaseState.notifikasi = "Gagal Tertangkap: Tikus berhasil meloloskan diri setelah 5 menit. Pintu dibuka kembali.";
                 
-                // Add log entries to history
-                let session = sessionHistory.find(s => s.sesiKe === activeSesi);
-                if (!session) {
-                    session = { sesiKe: activeSesi, entries: [] };
-                    sessionHistory.push(session);
-                }
+                // Add log entries to history (sesi_N format)
+                const sesiKey = `sesi_${activeSesi}`;
+                if (!sessionHistory[sesiKey]) sessionHistory[sesiKey] = { entries: [] };
                 const now = Date.now();
-                session.entries.push({ status_pintu: "Gagal Tertangkap", tikus_ke: firebaseState.status.tikusDitangkap, waktu: now });
-                session.entries.push({ status_pintu: "Pintu Terbuka", tikus_ke: firebaseState.status.tikusDitangkap, waktu: now + 500 });
+                sessionHistory[sesiKey].entries.push({ status_pintu: "Gagal Tertangkap", tikus_ke: firebaseState.status.tikusDitangkap, waktu: now });
+                sessionHistory[sesiKey].entries.push({ status_pintu: "Pintu Terbuka", tikus_ke: firebaseState.status.tikusDitangkap, waktu: now + 500 });
                 
                 syncUI();
                 updateDatabaseViewer();
@@ -1170,31 +1196,40 @@ function setupCameraSimulation() {
             // Check if passes IR Sensor 2 (x = 155)
             if (activeRat.x >= 155 && !activeRat.sensor2Triggered) {
                 activeRat.sensor2Triggered = true;
-                sensor2Triggered = true; // global trigger for flash
-                setTimeout(() => { sensor2Triggered = false; }, 600); // flash laser for 600ms
+                sensor2Triggered = true;
+                setTimeout(() => {
+                    sensor2Triggered = false;
+                    firebaseState.status.ir2_hitung = "TIDAK ADA";
+                    updateDatabaseViewer();
+                }, 600);
 
-                // Increment caught count
+                // Sensor 2 triggered
+                firebaseState.status.ir2_hitung = "ADA";
                 firebaseState.status.tikusDitangkap += 1;
                 const activeSesi = firebaseState.status.sesi;
 
                 if (firebaseState.status.tikusDitangkap >= 5) {
-                    firebaseState.status.pintu = "Tikus Tertangkap (Penuh)";
+                    firebaseState.status.penuh = true;
+                    firebaseState.status.pintu = "terbuka";
+                    firebaseState.status.ir1_masuk = "TIDAK ADA";
+                    firebaseState.status.servoAngle = 90;
+                    firebaseState.status.debugLog = `IR2 ADA - Tikus ke-5 masuk. Perangkap PENUH.`;
                     firebaseState.notifikasi = `Awas! Perangkap PENUH! 5 Tikus Tertangkap di Sesi ${activeSesi}. Segera kosongkan!`;
                 } else {
-                    firebaseState.status.pintu = "Terbuka"; // Automatic open!
+                    firebaseState.status.pintu = "terbuka";
+                    firebaseState.status.ir1_masuk = "TIDAK ADA";
+                    firebaseState.status.servoAngle = 90;
+                    firebaseState.status.debugLog = `IR2 ADA - Tikus ke-${firebaseState.status.tikusDitangkap} masuk penampungan.`;
                     firebaseState.notifikasi = `Sukses: Tikus ke-${firebaseState.status.tikusDitangkap} masuk penampungan. Pintu dibuka kembali.`;
                 }
 
-                // Add log entry
-                let session = sessionHistory.find(s => s.sesiKe === activeSesi);
-                if (!session) {
-                    session = { sesiKe: activeSesi, entries: [] };
-                    sessionHistory.push(session);
-                }
+                // Add log entry (sesi_N format)
+                const sesiKey = `sesi_${activeSesi}`;
+                if (!sessionHistory[sesiKey]) sessionHistory[sesiKey] = { entries: [] };
                 const now = Date.now();
-                session.entries.push({ status_pintu: "Tikus Tertangkap", tikus_ke: firebaseState.status.tikusDitangkap, waktu: now });
+                sessionHistory[sesiKey].entries.push({ status_pintu: "Tikus Tertangkap", tikus_ke: firebaseState.status.tikusDitangkap, waktu: now });
                 if (firebaseState.status.tikusDitangkap < 5) {
-                    session.entries.push({ status_pintu: "Pintu Terbuka", tikus_ke: firebaseState.status.tikusDitangkap, waktu: now + 500 });
+                    sessionHistory[sesiKey].entries.push({ status_pintu: "Pintu Terbuka", tikus_ke: firebaseState.status.tikusDitangkap, waktu: now + 500 });
                 }
 
                 syncUI();
@@ -1253,11 +1288,11 @@ function setupCameraSimulation() {
         const cageLeft = 195;
         const cageRight = 295;
         
-        // Scare behavior if Buzzer is ON and trap is closed
-        if (firebaseState.control.buzzer && firebaseState.status.pintu !== "Terbuka") {
+        // Scare behavior if Buzzer is ON and door is closed
+        if (firebaseState.control.buzzer && firebaseState.status.pintu === "tertutup") {
             rat.state = "scared";
-            rat.speed = 3.2; // frantic running
-        } else if (firebaseState.status.pintu.includes("Tertangkap") || firebaseState.status.pintu.includes("Penuh") || firebaseState.status.pintu === "Tertutup") {
+            rat.speed = 3.2;
+        } else if (firebaseState.status.penuh || firebaseState.status.pintu === "tertutup") {
             rat.state = "trapped";
             rat.speed = 1.0;
         } else {
