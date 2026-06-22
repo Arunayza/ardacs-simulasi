@@ -120,32 +120,28 @@ function syncUI() {
         }
     }
 
-    // Sync Physical Controller buttons based on connectivity and catch count (max 5)
-    const ctrlCatchBtn = document.getElementById("ctrlCatchBtn");
-    const ctrlEscapeBtn = document.getElementById("ctrlEscapeBtn");
+    // Sync Physical Controller buttons based on connectivity, catch count, and active rat stage
+    const ctrlCatchBtn    = document.getElementById("ctrlCatchBtn");
+    const ctrlTunnelBtn   = document.getElementById("ctrlTunnelBtn");
+    const ctrlEscapeBtn   = document.getElementById("ctrlEscapeBtn");
     const ctrlResetTrapBtn = document.getElementById("ctrlResetTrapBtn");
     const ctrlEmptyTrapBtn = document.getElementById("ctrlEmptyTrapBtn");
-    
-    if (!firebaseState.status.online) {
-        if (ctrlCatchBtn) ctrlCatchBtn.disabled = true;
-        if (ctrlEscapeBtn) ctrlEscapeBtn.disabled = true;
-        if (ctrlResetTrapBtn) ctrlResetTrapBtn.disabled = true;
-        if (ctrlEmptyTrapBtn) ctrlEmptyTrapBtn.disabled = true;
-    } else {
-        if (ctrlResetTrapBtn) ctrlResetTrapBtn.disabled = false;
-        if (ctrlEmptyTrapBtn) ctrlEmptyTrapBtn.disabled = false;
-        
-        if (firebaseState.status.tikusDitangkap >= 5) {
-            if (ctrlCatchBtn) ctrlCatchBtn.disabled = true;
-            if (ctrlEscapeBtn) ctrlEscapeBtn.disabled = true;
-            if (ctrlEmptyTrapBtn) ctrlEmptyTrapBtn.style.display = "block";
-        } else {
-            // Only enable if no active rat is currently in the simulation process
-            const isBusy = (activeRat !== null);
-            if (ctrlCatchBtn) ctrlCatchBtn.disabled = isBusy;
-            if (ctrlEscapeBtn) ctrlEscapeBtn.disabled = isBusy;
-            if (ctrlEmptyTrapBtn) ctrlEmptyTrapBtn.style.display = "none";
-        }
+
+    const isOnline    = firebaseState.status.online;
+    const isFull      = firebaseState.status.tikusDitangkap >= 5;
+    const isWaiting   = activeRat !== null && activeRat.stage === "waiting_choice";
+    const isBusy      = activeRat !== null && activeRat.stage !== "waiting_choice";
+
+    // Buttons 1 (enter): enabled only when online, not full, and no active animation
+    if (ctrlCatchBtn)   ctrlCatchBtn.disabled   = !isOnline || isFull || isBusy || isWaiting;
+    // Buttons 2a/2b: enabled ONLY while rat is in "waiting_choice"
+    if (ctrlTunnelBtn)  ctrlTunnelBtn.disabled  = !isOnline || !isWaiting;
+    if (ctrlEscapeBtn)  ctrlEscapeBtn.disabled  = !isOnline || !isWaiting;
+    // Reset / Empty buttons
+    if (ctrlResetTrapBtn) ctrlResetTrapBtn.disabled = !isOnline;
+    if (ctrlEmptyTrapBtn) {
+        ctrlEmptyTrapBtn.disabled = !isOnline;
+        ctrlEmptyTrapBtn.style.display = (isOnline && isFull) ? "block" : "none";
     }
 
     // Battery values
@@ -556,82 +552,46 @@ function setupSimulatorControls() {
         document.getElementById("workflowStatusDesc").textContent = "Alat Offline. Koneksi jaringan terputus.";
     });
     
-    // 2. Simulate Rat Caught Button (Spawns active rat, sets off multi-stage trigger)
+    // 2. Simulasi Tikus Masuk (Step 1) — rat walks in, door snaps shut, waits at "waiting_choice"
     document.getElementById("ctrlCatchBtn").addEventListener("click", () => {
-        if (!firebaseState.status.online) {
-            alert("Harap hubungkan alat secara ONLINE terlebih dahulu untuk mengirim status tikus ditangkap.");
-            return;
-        }
+        if (!firebaseState.status.online || firebaseState.status.tikusDitangkap >= 5 || activeRat) return;
 
-        if (firebaseState.status.tikusDitangkap >= 5) {
-            alert("Perangkap sudah penuh! Silakan keluarkan tikus terlebih dahulu secara fisik.");
-            return;
-        }
-
-        if (activeRat) {
-            return;
-        }
-
-        // Initialize active rat at entrance
         activeRat = {
-            x: -20,
-            y: 220,
-            targetX: 80,
-            targetY: 220,
-            width: 22,
-            height: 14,
+            x: -20, y: 220,
+            targetX: 80, targetY: 220,
+            width: 22, height: 14,
             speed: 1.5,
             state: "sniffing",
             direction: 1,
             stage: "entering",
-            path: "catch",
+            path: null,          // path decided later by user
             sensor2Triggered: false,
             timer: 0
         };
-
-        // Temporarily disable catch buttons during active transit
         syncUI();
-        
         showToast("Tikus mendekati perangkap...");
     });
 
-    // 2.2 Simulate Rat Escape Button (Spawns active rat, triggers timeout sequence)
-    document.getElementById("ctrlEscapeBtn").addEventListener("click", () => {
-        if (!firebaseState.status.online) {
-            alert("Harap hubungkan alat secara ONLINE terlebih dahulu untuk mengirim status tikus.");
-            return;
-        }
-
-        if (firebaseState.status.tikusDitangkap >= 5) {
-            alert("Perangkap sudah penuh! Silakan keluarkan tikus terlebih dahulu secara fisik.");
-            return;
-        }
-
-        if (activeRat) {
-            return;
-        }
-
-        // Initialize active rat at entrance with escape path
-        activeRat = {
-            x: -20,
-            y: 220,
-            targetX: 80,
-            targetY: 220,
-            width: 22,
-            height: 14,
-            speed: 1.5,
-            state: "sniffing",
-            direction: 1,
-            stage: "entering",
-            path: "escape",
-            sensor2Triggered: false,
-            timer: 0
-        };
-
-        // Temporarily disable catch buttons during active transit
+    // 2a. Tikus Lewat Lorong (Step 2a) — only enabled when rat is waiting in Box 1
+    document.getElementById("ctrlTunnelBtn").addEventListener("click", () => {
+        if (!firebaseState.status.online || !activeRat || activeRat.stage !== "waiting_choice") return;
+        // Assign catch path and send rat towards tunnel
+        activeRat.path = "catch";
+        activeRat.stage = "entering_tunnel";
+        activeRat.sensor2Triggered = false;
         syncUI();
-        
-        showToast("Tikus mendekati perangkap (Skenario Lepas)...");
+        showToast("Tikus menuju lorong ke penampungan...");
+    });
+
+    // 2b. Tikus Lepas — only enabled when rat is waiting in Box 1
+    document.getElementById("ctrlEscapeBtn").addEventListener("click", () => {
+        if (!firebaseState.status.online || !activeRat || activeRat.stage !== "waiting_choice") return;
+        // Assign escape path and start 5s countdown
+        activeRat.path = "escape";
+        activeRat.stage = "trapped_box1_escape";
+        activeRat.timer = 300; // 5 seconds at ~60 FPS
+        syncUI();
+        showToast("Skenario Lepas dimulai! Buzzer menyala otomatis di 3 detik...");
     });
 
     // 2.5 Keluarkan Tikus & Reset Perangkap (Physical action outside the app)
@@ -1116,38 +1076,27 @@ function setupCameraSimulation() {
                 // Play alert sound
                 playAlertBeep();
 
-                if (activeRat.path === "escape") {
-                    // Transition to escape sequence (5s timeline)
-                    activeRat.stage = "trapped_box1_escape";
-                    activeRat.timer = 300; // 5 seconds at 60 FPS
-                } else {
-                    // Transition to trapped state inside Box 1
-                    activeRat.stage = "trapped_box1";
-                    activeRat.timer = 100; // pace for 100 frames (~1.6s)
-                }
+                // Always go to waiting_choice — user decides what happens next
+                activeRat.stage = "waiting_choice";
                 
                 syncUI();
                 updateDatabaseViewer();
 
                 triggerWorkflowPulse("trap_to_app", () => {
-                    showLocalNotification("Perangkap Tikus", "Peringatan: Tikus terdeteksi di Perangkap! (Status: Tertangkap/Lepas)");
+                    showLocalNotification("Perangkap Tikus", "Tikus masuk perangkap! (Tertangkap/Lepas) — Pilih: Lewat Lorong atau Biarkan Lepas");
                 });
             }
         } 
-        else if (activeRat.stage === "trapped_box1") {
-            // Pacing inside Kotak 1
+        else if (activeRat.stage === "waiting_choice") {
+            // Rat paces anxiously inside Kotak 1 — waiting for user to press 2a or 2b
             activeRat.state = "trapped";
-            if (activeRat.targetX === 80 || Math.abs(activeRat.x - activeRat.targetX) < 8) {
+            if (Math.abs(activeRat.x - activeRat.targetX) < 8) {
                 activeRat.targetX = cage1Left + Math.random() * (cage1Right - cage1Left - 20);
             }
             activeRat.direction = activeRat.x < activeRat.targetX ? 1 : -1;
             activeRat.x += activeRat.speed * activeRat.direction * speedMultiplier;
-            
-            activeRat.timer--;
-            if (activeRat.timer <= 0) {
-                // Head to tunnel
-                activeRat.stage = "entering_tunnel";
-            }
+            // Clamp within Box 1
+            activeRat.x = Math.max(cage1Left, Math.min(cage1Right, activeRat.x));
         } 
         else if (activeRat.stage === "trapped_box1_escape") {
             // Pacing inside Kotak 1

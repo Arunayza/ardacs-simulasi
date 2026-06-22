@@ -275,9 +275,12 @@
                     <div class="control-item">
                         <span class="control-item-title">2. Sensor Fisik Perangkap</span>
                         <div class="btn-group" style="flex-direction: column; gap: 8px;">
-                            <div style="display: flex; gap: 8px; width: 100%;">
-                                <button class="btn-sim btn-primary" id="ctrlCatchBtn" style="flex: 1; font-size: 0.76rem; padding: 8px 4px;">Simulasi Tikus Tangkap</button>
-                                <button class="btn-sim btn-primary" id="ctrlEscapeBtn" style="flex: 1; font-size: 0.76rem; padding: 8px 4px; background-color: #f59e0b;">Simulasi Tikus Lepas</button>
+                            <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                                <button class="btn-sim btn-primary" id="ctrlCatchBtn" style="width: 100%; font-size: 0.8rem; padding: 10px 6px;">1. Simulasi Tikus Masuk Perangkap</button>
+                                <div style="display: flex; gap: 8px; width: 100%;">
+                                    <button class="btn-sim" id="ctrlTunnelBtn" style="flex: 1; font-size: 0.73rem; padding: 8px 4px; background-color: #10b981; color: white;">2a. Tikus Lewat Lorong</button>
+                                    <button class="btn-sim" id="ctrlEscapeBtn" style="flex: 1; font-size: 0.73rem; padding: 8px 4px; background-color: #f59e0b; color: white;">2b. Tikus Lepas (Timeout)</button>
+                                </div>
                             </div>
                             <div style="display: flex; gap: 8px; width: 100%;">
                                 <button class="btn-sim" id="ctrlResetTrapBtn" style="flex: 1; font-size: 0.76rem; padding: 8px 4px;">Reset Pintu Terbuka</button>
@@ -285,7 +288,7 @@
                             <button class="btn-sim btn-accent" id="ctrlEmptyTrapBtn" style="width: 100%; display: none; background-color: var(--dash-accent); color: #0f111a; font-weight: bold;">Keluarkan Tikus &amp; Reset Perangkap (Fisik)</button>
                         </div>
                         <div style="font-size: 0.72rem; color: var(--dash-text-muted); margin-top: 4px;">
-                            Meniru sensor perangkap. Simulasi Tikus Lepas memicu timeout 5 menit (5 detik simulasi) &amp; buzzer otomatis menyala pada menit ke-3.
+                            Simulasikan tikus masuk terlebih dahulu. Setelah terjebak di Kotak 1, pilih apakah tikus akan melewati lorong (tertangkap) atau dibiarkan lepas (timeout/buzzer otomatis menyala).
                         </div>
                     </div>
 
