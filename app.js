@@ -822,7 +822,8 @@ function setupCameraSimulation() {
         // Update and draw active rat in trapping sequence
         if (activeRat) {
             updateActiveRat();
-            drawRat(activeRat);
+            // Re-check: updateActiveRat() may have set activeRat to null
+            if (activeRat) drawRat(activeRat);
         } else if (firebaseState.status.tikusDitangkap < 5) {
             // Draw a decorative sniffing rat outside waiting to enter
             let outsideRat = { x: -5 + Math.sin(Date.now() / 800) * 8, y: 220, width: 22, height: 14, state: "sniffing", direction: 1 };
@@ -1076,14 +1077,14 @@ function setupCameraSimulation() {
                 // Play alert sound
                 playAlertBeep();
 
-                // Always go to waiting_choice — user decides what happens next
+                // Always go to waiting_choice — user can now choose tunnel or escape via the simulator buttons
                 activeRat.stage = "waiting_choice";
                 
                 syncUI();
                 updateDatabaseViewer();
 
                 triggerWorkflowPulse("trap_to_app", () => {
-                    showLocalNotification("Perangkap Tikus", "Tikus masuk perangkap! (Tertangkap/Lepas) — Pilih: Lewat Lorong atau Biarkan Lepas");
+                    showLocalNotification("Perangkap Tikus", "Sensor 1 aktif! Tikus terdeteksi di Kotak 1. Status: Tertangkap/Lepas");
                 });
             }
         } 
