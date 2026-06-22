@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ardacs - Interactive IoT Mouse Trap Simulator</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- CSS Link -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Header Dashboard -->
+    <header class="dash-header">
+        <h1>
+            <svg style="width: 28px; height: 28px; fill: currentColor;" viewBox="0 0 24 24">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2z"/>
+            </svg>
+            Ardacs Simulation Dashboard
+            <span class="badge-demo">Interactive Demo</span>
+        </h1>
+        <div style="font-size: 0.85rem; color: var(--dash-text-muted);">
+            Proyek Monitoring Perangkap Tikus Pintar &bull; ESP8266 + Firebase + Android
+        </div>
+    </header>
+
+    <!-- Main Grid Layout -->
+    <div class="dashboard-grid">
+
+        <!-- LEFT PANEL: Android Mockup -->
+        <section class="phone-panel">
+            <div class="smartphone">
+                <div class="phone-screen" id="phoneScreen">
+                    
+                    <!-- Backdrop for Drawer Navigation -->
+                    <div class="phone-drawer-backdrop" id="drawerBackdrop"></div>
+
+                    <!-- Slide down Notification Drawer -->
+                    <div class="phone-notif-drawer" id="notifDrawer">
+                        <div class="notif-icon-circle">
+                            <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: currentColor;">
+                                <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                            </svg>
+                        </div>
+                        <div class="notif-body">
+                            <div class="notif-title" id="notifTitle">Perangkap Tikus</div>
+                            <div class="notif-desc" id="notifDesc">Pemberitahuan masuk.</div>
+                        </div>
+                    </div>
+
+                    <!-- Android Settings Sidebar (NavigationView) -->
+                    <div class="phone-drawer" id="phoneDrawer">
+                        <div class="phone-drawer-header">
+                            <h3>Pengaturan</h3>
+                        </div>
+                        <div class="phone-drawer-content">
+                            <div class="drawer-setting-row">
+                                <span class="drawer-setting-label">Aktifkan Notifikasi</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="switchNotif" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="drawer-setting-row">
+                                <span class="drawer-setting-label">Mode Gelap</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="switchDarkMode">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Top Status Bar (Wifi, Signal, Battery, Time) -->
+                    <div class="phone-statusbar">
+                        <span id="statusBarTime">22:25</span>
+                        <div class="statusbar-icons">
+                            <!-- Signal strength -->
+                            <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; fill: currentColor;">
+                                <path d="M2 22h20V2z"/>
+                            </svg>
+                            <!-- Wifi -->
+                            <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; fill: currentColor;">
+                                <path d="M12 21l-12-12c5.05-5.05 13.95-5.05 19 0l-7 12z"/>
+                            </svg>
+                            <!-- Battery -->
+                            <div class="statusbar-battery">
+                                <span id="statusBarBatteryPercent">92%</span>
+                                <div class="statusbar-battery-body">
+                                    <div class="statusbar-battery-level" id="statusBarBatteryLevel" style="width: 92%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Toolbar (App Title, Online Chip) -->
+                    <div class="phone-toolbar">
+                        <button class="toolbar-menu-btn" id="btnMenuDrawer">
+                            <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: currentColor;">
+                                <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+                            </svg>
+                        </button>
+                        <span class="toolbar-title" id="toolbarTitle">Sen, 30 Mei 2025</span>
+                        <div class="chip-status online" id="chipStatus">
+                            <span class="chip-dot"></span>
+                            <span id="chipStatusText">Online</span>
+                        </div>
+                    </div>
+
+                    <!-- App Scrollable Viewport Content -->
+                    <div class="phone-content-viewport" id="phoneViewport">
+
+                        <!-- TAB 1: HOME SCREEN -->
+                        <div class="app-screen-tab active" id="tab-home">
+                            <div class="m3-card">
+                                <div class="m3-card-title">Status Perangkap</div>
+                                <div class="status-row">Status pintu: <span id="viewStatusPintu" style="color: var(--primary);">Terbuka</span></div>
+                                <div class="status-row">Tikus ke: <span id="viewTikusDitangkap">0</span></div>
+                                <div class="status-row">Sesi: <span id="viewSesi">1</span></div>
+                                
+                                <div class="status-divider"></div>
+                                
+                                <div class="battery-grid">
+                                    <div class="battery-col">
+                                        <div class="battery-label">Persentase Baterai</div>
+                                        <div class="battery-val" id="viewBatteryPercent">92 %</div>
+                                    </div>
+                                    <div class="battery-col">
+                                        <div class="battery-label">Tegangan Baterai</div>
+                                        <div class="battery-val" id="viewBatteryVoltage">4.12 V</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ImageButtons: Buzzer & Relay -->
+                            <div class="home-actions">
+                                <div class="action-column">
+                                    <button class="circle-btn" id="btnPhoneBuzzer">
+                                        <!-- Volume up icon -->
+                                        <svg id="iconBuzzer" viewBox="0 0 24 24">
+                                            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                                        </svg>
+                                    </button>
+                                    <span class="action-label" id="labelBuzzer">Tekan untuk Menakuti Tikus</span>
+                                </div>
+                                <div class="action-column">
+                                    <button class="circle-btn" id="btnPhoneRelay">
+                                        <!-- Camera on icon -->
+                                        <svg id="iconRelay" viewBox="0 0 24 24">
+                                            <path d="M9 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0-8c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5 2.24-5 5-5zm11 11h-2v-2h-2v2h-2v2h2v2h2v-2h2v-2zm-6 2H2v-2c0-2.33 4.75-3.5 7-3.5s7 1.17 7 3.5v2z"/>
+                                        </svg>
+                                    </button>
+                                    <span class="action-label" id="labelRelay">Nyalakan Kamera Manual</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB 2: HISTORY SCREEN -->
+                        <div class="app-screen-tab" id="tab-history">
+                            <div class="history-header-actions">
+                                <button class="m3-btn-outlined" id="btnPhoneResetHistory">
+                                    <!-- Delete trash icon -->
+                                    <svg viewBox="0 0 24 24">
+                                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                    </svg>
+                                    Reset Semua History
+                                </button>
+                            </div>
+
+                            <div class="sessions-list" id="sessionsContainer">
+                                <!-- History items will be injected by JS -->
+                                <div class="empty-history-text">Belum ada riwayat penangkapan.</div>
+                            </div>
+                        </div>
+
+                        <!-- TAB 3: LIVE CAMERA SCREEN -->
+                        <div class="app-screen-tab" id="tab-camera">
+                            <div class="camera-view-container">
+                                <div class="camera-header-toolbar">
+                                    <svg viewBox="0 0 24 24">
+                                        <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
+                                    </svg>
+                                    <span>Live Camera feed (ESP32-CAM)</span>
+                                </div>
+                                <div class="camera-stream-box">
+                                    <div class="flash-overlay" id="flashOverlay"></div>
+                                    <canvas id="cameraCanvas" width="320" height="320"></canvas>
+                                    
+                                    <!-- Offline state warning -->
+                                    <div class="camera-overlay-offline" id="cameraOfflineOverlay">
+                                        <svg viewBox="0 0 24 24">
+                                            <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zm-7.66 4.67l-2.07-2.07c-.39-.39-.39-1.02 0-1.41.39-.39 1.02-.39 1.41 0l.66.66 2.37-2.37c.39-.39 1.02-.39 1.41 0 .39.39.39 1.02 0 1.41l-3.08 3.08c-.19.19-.45.29-.7.29s-.51-.1-.7-.3zM4 19V5h12v14H4z"/>
+                                        </svg>
+                                        <p>Power Kamera Mati<br><span style="font-size: 0.75rem; color: #757575;">Nyalakan "Kamera Manual" di menu Utama terlebih dahulu</span></p>
+                                    </div>
+                                </div>
+                                <div class="camera-footer-controls">
+                                    <button class="capture-btn" id="btnPhoneCapture" title="Ambil Foto">
+                                        <svg viewBox="0 0 24 24">
+                                            <circle cx="12" cy="12" r="3.2"/>
+                                            <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div> <!-- /phone-content-viewport -->
+
+                    <!-- Android Toast notifications inside device -->
+                    <div class="phone-toast" id="phoneToast">Pesan Toast</div>
+
+                    <!-- Material 3 style Bottom Navigation Bar -->
+                    <div class="phone-bottom-nav">
+                        <button class="bottom-nav-item active" data-tab="tab-home" id="navHomeBtn">
+                            <div class="nav-icon-container">
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+                                </svg>
+                            </div>
+                            <span>Home</span>
+                        </button>
+                        <button class="bottom-nav-item" data-tab="tab-history" id="navHistoryBtn">
+                            <div class="nav-icon-container">
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
+                                </svg>
+                            </div>
+                            <span>History</span>
+                        </button>
+                        <button class="bottom-nav-item" data-tab="tab-camera" id="navCameraBtn">
+                            <div class="nav-icon-container">
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                                </svg>
+                            </div>
+                            <span>Kamera</span>
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT PANEL: Dashboard Controller and Flow Visualizer -->
+        <main class="control-panel">
+
+            <!-- Condition Simulators Card -->
+            <section class="dash-card">
+                <h2>
+                    <svg viewBox="0 0 24 24">
+                        <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3-1.57-3-3.5s1.07-3.5 3-3.5 3 1.57 3 3.5-1.07 3.5-3 3.5z"/>
+                    </svg>
+                    Simulasi Kondisi Alat & Lingkungan
+                </h2>
+                
+                <div class="control-grid">
+                    
+                    <!-- 1. Connectivity Status Simulator -->
+                    <div class="control-item">
+                        <span class="control-item-title">1. Koneksi Internet Alat (ESP8266)</span>
+                        <div class="btn-group">
+                            <button class="btn-sim btn-accent" id="ctrlOnlineBtn" data-status="true">Online</button>
+                            <button class="btn-sim" id="ctrlOfflineBtn" data-status="false">Offline</button>
+                        </div>
+                        <div style="font-size: 0.72rem; color: var(--dash-text-muted);">
+                            Memutus koneksi ESP8266 ke Firebase. Aplikasi akan menunjukkan status "Offline".
+                        </div>
+                    </div>
+
+                    <!-- 2. Trap Status Simulator -->
+                    <div class="control-item">
+                        <span class="control-item-title">2. Sensor Fisik Perangkap</span>
+                        <div class="btn-group">
+                            <button class="btn-sim btn-primary" id="ctrlCatchBtn">Simulasikan Tikus Masuk</button>
+                            <button class="btn-sim" id="ctrlResetTrapBtn">Reset Pintu Terbuka</button>
+                        </div>
+                        <div style="font-size: 0.72rem; color: var(--dash-text-muted);">
+                            Meniru input sensor batas/mikro-sakelar pada perangkap ketika tikus memicu pintu.
+                        </div>
+                    </div>
+
+                    <!-- 3. Battery Simulator -->
+                    <div class="control-item">
+                        <span class="control-item-title">3. Kapasitas Baterai Alat (Li-Ion)</span>
+                        <div class="slider-container">
+                            <input type="range" class="dash-slider" id="ctrlBatterySlider" min="0" max="100" value="92">
+                            <span class="slider-val" id="ctrlBatterySliderVal">92%</span>
+                        </div>
+                        <div style="font-size: 0.72rem; color: var(--dash-text-muted);" id="ctrlBatteryHelper">
+                            Menghitung tegangan sel baterai (Volt) proporsional. Batas aman > 3.3V (20%).
+                        </div>
+                    </div>
+
+                    <!-- 4. Buzzer Feedback Visualizer -->
+                    <div class="control-item">
+                        <span class="control-item-title">4. Status Buzzer Suara</span>
+                        <div class="sound-visualizer" id="buzzerVisualizer">
+                            <svg class="sound-icon" viewBox="0 0 24 24" style="width: 24px; height: 24px; fill: currentColor;">
+                                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+                            </svg>
+                            <div style="flex: 1; font-size: 0.75rem; font-weight: 500;">
+                                Buzzer Suara: <span id="buzzerTextStatus">Mati (Silent)</span>
+                            </div>
+                            <div class="sound-bars">
+                                <div class="sound-bar"></div>
+                                <div class="sound-bar"></div>
+                                <div class="sound-bar"></div>
+                                <div class="sound-bar"></div>
+                                <div class="sound-bar"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- IoT Dynamic Flowchart Visualizer Card -->
+            <section class="dash-card">
+                <h2>
+                    <svg viewBox="0 0 24 24">
+                        <path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/>
+                    </svg>
+                    Jalur Komunikasi &amp; Visual Alur Kerja IoT (Workflow)
+                </h2>
+                
+                <div class="workflow-box">
+                    <div class="svg-flow-container">
+                        <!-- Responsive SVG flowchart diagram -->
+                        <svg viewBox="0 0 600 240" width="100%">
+                            <!-- Markers for arrows -->
+                            <defs>
+                                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                    <path d="M 0 2 L 10 5 L 0 8 z" class="arrow-head"/>
+                                </marker>
+                            </defs>
+
+                            <!-- Node A: Perangkap Tikus (ESP8266 & ESP32) -->
+                            <g id="wfNodeTrap">
+                                <rect class="node-box" x="15" y="50" width="140" height="110"/>
+                                <text class="node-title" x="85" y="70">Smart Mouse Trap</text>
+                                <text class="node-text" x="85" y="92">Hardware (ESP8266)</text>
+                                <text class="node-text" x="85" y="108">Kamera (ESP32-CAM)</text>
+                                <text class="node-text" x="85" y="128" id="wfTrapPintuText" style="fill: var(--dash-accent); font-weight: bold;">Pintu: Terbuka</text>
+                                <text class="node-text" x="85" y="145" id="wfTrapBuzzerText" style="fill: #e53935;">Buzzer: OFF</text>
+                            </g>
+
+                            <!-- Node B: Firebase Realtime Database -->
+                            <g id="wfNodeFirebase">
+                                <rect class="node-box" x="230" y="50" width="140" height="110"/>
+                                <text class="node-title" x="300" y="70">Firebase RTDB</text>
+                                <text class="node-text" x="300" y="92">Broker Cloud</text>
+                                <text class="node-text" x="300" y="112" style="font-family: monospace; fill: #00ff66;">/status/ (Read)</text>
+                                <text class="node-text" x="300" y="132" style="font-family: monospace; fill: #a78bfa;">/control/ (W/R)</text>
+                            </g>
+
+                            <!-- Node C: Android Client (Ardacs App) -->
+                            <g id="wfNodeApp">
+                                <rect class="node-box" x="445" y="50" width="140" height="110"/>
+                                <text class="node-title" x="515" y="70">Android Client App</text>
+                                <text class="node-text" x="515" y="92">Aplikasi Pengguna</text>
+                                <text class="node-text" x="515" y="112">Pemantau Real-time</text>
+                                <text class="node-text" x="515" y="130" id="wfAppNotifText" style="fill: #ffd54f;">Notifikasi Aktif</text>
+                            </g>
+
+                            <!-- Communication Lines / Paths -->
+                            <!-- Line 1: Trap uploads state to Firebase (Node A -> Node B) -->
+                            <path id="pathTrapToFirebase" class="flow-line" d="M 155 90 L 230 90" marker-end="url(#arrow)"/>
+                            <text class="node-text" x="192" y="83" style="font-size: 8px;">Upload Status</text>
+
+                            <!-- Line 2: Firebase sends state to App (Node B -> Node C) -->
+                            <path id="pathFirebaseToApp" class="flow-line" d="M 370 90 L 445 90" marker-end="url(#arrow)"/>
+                            <text class="node-text" x="408" y="83" style="font-size: 8px;">Sinkronisasi</text>
+
+                            <!-- Line 3: App sends control commands back (Node C -> Node B) -->
+                            <path id="pathAppToFirebase" class="flow-line" d="M 445 120 L 370 120" marker-end="url(#arrow)"/>
+                            <text class="node-text" x="408" y="138" style="font-size: 8px;">Kirim Kontrol</text>
+
+                            <!-- Line 4: Firebase pushes command to Trap (Node B -> Node A) -->
+                            <path id="pathFirebaseToTrap" class="flow-line" d="M 230 120 L 155 120" marker-end="url(#arrow)"/>
+                            <text class="node-text" x="192" y="138" style="font-size: 8px;">Pemicu Aksi</text>
+
+                            <!-- Line 5: Direct camera stream path from Trap to App (Node A -> Node C bypass Firebase) -->
+                            <path id="pathCameraToApp" class="flow-line camera-stream" d="M 85 160 C 85 220, 515 220, 515 160" marker-end="url(#arrow)"/>
+                            <text class="node-text" x="300" y="215" style="fill: var(--dash-accent); font-weight: bold; font-size: 8px;">Live Stream Kamera Lokal (MJPEG HTTP /camBaseUrl)</text>
+                        </svg>
+                    </div>
+
+                    <div class="workflow-explanation">
+                        <strong>Keterangan Alur Saat Ini:</strong>
+                        <p id="workflowStatusDesc">
+                            <span class="active-step">Sistem Idle</span> Menunggu aksi simulasi atau interaksi dengan telepon genggam untuk mendemonstrasikan pergerakan data.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Virtual Database State View Card -->
+            <section class="dash-card">
+                <h2>
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/>
+                    </svg>
+                    Nilai Firebase Realtime Database Virtual
+                </h2>
+                <div class="db-viewer">
+                    <pre class="db-code-block"><code id="dbJSONViewer">{
+  "status": {
+    "pintu": "Terbuka",
+    "tikusDitangkap": 0,
+    "sesi": 1,
+    "online": true,
+    "batteryVoltage": "4.12",
+    "batteryPercent": 92
+  },
+  "control": {
+    "buzzer": false,
+    "relayKamera": false,
+    "notifEnabled": true,
+    "deleteHistoryCommand": ""
+  }
+}</code></pre>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Script link -->
+    <script src="app.js"></script>
+</body>
+</html>
