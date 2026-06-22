@@ -122,11 +122,13 @@ function syncUI() {
 
     // Sync Physical Controller buttons based on connectivity and catch count (max 5)
     const ctrlCatchBtn = document.getElementById("ctrlCatchBtn");
+    const ctrlEscapeBtn = document.getElementById("ctrlEscapeBtn");
     const ctrlResetTrapBtn = document.getElementById("ctrlResetTrapBtn");
     const ctrlEmptyTrapBtn = document.getElementById("ctrlEmptyTrapBtn");
     
     if (!firebaseState.status.online) {
         if (ctrlCatchBtn) ctrlCatchBtn.disabled = true;
+        if (ctrlEscapeBtn) ctrlEscapeBtn.disabled = true;
         if (ctrlResetTrapBtn) ctrlResetTrapBtn.disabled = true;
         if (ctrlEmptyTrapBtn) ctrlEmptyTrapBtn.disabled = true;
     } else {
@@ -135,10 +137,13 @@ function syncUI() {
         
         if (firebaseState.status.tikusDitangkap >= 5) {
             if (ctrlCatchBtn) ctrlCatchBtn.disabled = true;
+            if (ctrlEscapeBtn) ctrlEscapeBtn.disabled = true;
             if (ctrlEmptyTrapBtn) ctrlEmptyTrapBtn.style.display = "block";
         } else {
             // Only enable if no active rat is currently in the simulation process
-            if (ctrlCatchBtn) ctrlCatchBtn.disabled = (activeRat !== null);
+            const isBusy = (activeRat !== null);
+            if (ctrlCatchBtn) ctrlCatchBtn.disabled = isBusy;
+            if (ctrlEscapeBtn) ctrlEscapeBtn.disabled = isBusy;
             if (ctrlEmptyTrapBtn) ctrlEmptyTrapBtn.style.display = "none";
         }
     }
@@ -579,14 +584,54 @@ function setupSimulatorControls() {
             state: "sniffing",
             direction: 1,
             stage: "entering",
+            path: "catch",
             sensor2Triggered: false,
             timer: 0
         };
 
-        // Temporarily disable catch button during active transit
-        document.getElementById("ctrlCatchBtn").disabled = true;
+        // Temporarily disable catch buttons during active transit
+        syncUI();
         
         showToast("Tikus mendekati perangkap...");
+    });
+
+    // 2.2 Simulate Rat Escape Button (Spawns active rat, triggers timeout sequence)
+    document.getElementById("ctrlEscapeBtn").addEventListener("click", () => {
+        if (!firebaseState.status.online) {
+            alert("Harap hubungkan alat secara ONLINE terlebih dahulu untuk mengirim status tikus.");
+            return;
+        }
+
+        if (firebaseState.status.tikusDitangkap >= 5) {
+            alert("Perangkap sudah penuh! Silakan keluarkan tikus terlebih dahulu secara fisik.");
+            return;
+        }
+
+        if (activeRat) {
+            return;
+        }
+
+        // Initialize active rat at entrance with escape path
+        activeRat = {
+            x: -20,
+            y: 220,
+            targetX: 80,
+            targetY: 220,
+            width: 22,
+            height: 14,
+            speed: 1.5,
+            state: "sniffing",
+            direction: 1,
+            stage: "entering",
+            path: "escape",
+            sensor2Triggered: false,
+            timer: 0
+        };
+
+        // Temporarily disable catch buttons during active transit
+        syncUI();
+        
+        showToast("Tikus mendekati perangkap (Skenario Lepas)...");
     });
 
     // 2.5 Keluarkan Tikus & Reset Perangkap (Physical action outside the app)
@@ -1071,9 +1116,15 @@ function setupCameraSimulation() {
                 // Play alert sound
                 playAlertBeep();
 
-                // Transition to trapped state inside Box 1
-                activeRat.stage = "trapped_box1";
-                activeRat.timer = 100; // pace for 100 frames (~1.6s)
+                if (activeRat.path === "escape") {
+                    // Transition to escape sequence (5s timeline)
+                    activeRat.stage = "trapped_box1_escape";
+                    activeRat.timer = 300; // 5 seconds at 60 FPS
+                } else {
+                    // Transition to trapped state inside Box 1
+                    activeRat.stage = "trapped_box1";
+                    activeRat.timer = 100; // pace for 100 frames (~1.6s)
+                }
                 
                 syncUI();
                 updateDatabaseViewer();
@@ -1098,6 +1149,67 @@ function setupCameraSimulation() {
                 activeRat.stage = "entering_tunnel";
             }
         } 
+        else if (activeRat.stage === "trapped_box1_escape") {
+            // Pacing inside Kotak 1
+            activeRat.state = firebaseState.control.buzzer ? "scared" : "trapped";
+            if (activeRat.targetX === 80 || Math.abs(activeRat.x - activeRat.targetX) < 8) {
+                activeRat.targetX = cage1Left + Math.random() * (cage1Right - cage1Left - 20);
+            }
+            activeRat.direction = activeRat.x < activeRat.targetX ? 1 : -1;
+            activeRat.x += activeRat.speed * activeRat.direction * speedMultiplier;
+            
+            activeRat.timer--;
+
+            // At 3 seconds (180 frames elapsed, 120 remaining)
+            if (activeRat.timer === 120) {
+                firebaseState.control.buzzer = true;
+                syncUI();
+                updateDatabaseViewer();
+                triggerWorkflowPulse("app_to_trap", () => {
+                    showLocalNotification("Perangkap Tikus", "Buzzer otomatis aktif (3 menit tikus diam di Kotak 1)");
+                });
+            }
+
+            // At 5 seconds (300 frames elapsed, 0 remaining)
+            if (activeRat.timer <= 0) {
+                firebaseState.control.buzzer = false;
+                firebaseState.status.pintu = "Terbuka";
+                
+                const activeSesi = firebaseState.status.sesi;
+                firebaseState.notifikasi = "Gagal Tertangkap: Tikus berhasil meloloskan diri setelah 5 menit. Pintu dibuka kembali.";
+                
+                // Add log entries to history
+                let session = sessionHistory.find(s => s.sesiKe === activeSesi);
+                if (!session) {
+                    session = { sesiKe: activeSesi, entries: [] };
+                    sessionHistory.push(session);
+                }
+                const now = Date.now();
+                session.entries.push({ status_pintu: "Gagal Tertangkap", tikus_ke: firebaseState.status.tikusDitangkap, waktu: now });
+                session.entries.push({ status_pintu: "Pintu Terbuka", tikus_ke: firebaseState.status.tikusDitangkap, waktu: now + 500 });
+                
+                syncUI();
+                updateDatabaseViewer();
+                
+                activeRat.stage = "escaping";
+                activeRat.targetX = -30;
+                
+                triggerWorkflowPulse("trap_to_app", () => {
+                    showLocalNotification("Perangkap Tikus", "Gagal Tertangkap! Pintu terbuka kembali.");
+                });
+            }
+        }
+        else if (activeRat.stage === "escaping") {
+            // Heading back out to the left
+            activeRat.state = "sniffing";
+            activeRat.direction = -1;
+            activeRat.x += activeRat.speed * activeRat.direction * speedMultiplier;
+            
+            if (activeRat.x <= -30) {
+                activeRat = null;
+                syncUI();
+            }
+        }
         else if (activeRat.stage === "entering_tunnel") {
             // Head through tunnel x = 130 to 180
             activeRat.state = "trapped";

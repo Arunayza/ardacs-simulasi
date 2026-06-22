@@ -276,13 +276,16 @@
                         <span class="control-item-title">2. Sensor Fisik Perangkap</span>
                         <div class="btn-group" style="flex-direction: column; gap: 8px;">
                             <div style="display: flex; gap: 8px; width: 100%;">
-                                <button class="btn-sim btn-primary" id="ctrlCatchBtn" style="flex: 1;">Simulasikan Tikus Masuk</button>
-                                <button class="btn-sim" id="ctrlResetTrapBtn" style="flex: 1;">Reset Pintu Terbuka</button>
+                                <button class="btn-sim btn-primary" id="ctrlCatchBtn" style="flex: 1; font-size: 0.76rem; padding: 8px 4px;">Simulasi Tikus Tangkap</button>
+                                <button class="btn-sim btn-primary" id="ctrlEscapeBtn" style="flex: 1; font-size: 0.76rem; padding: 8px 4px; background-color: #f59e0b;">Simulasi Tikus Lepas</button>
+                            </div>
+                            <div style="display: flex; gap: 8px; width: 100%;">
+                                <button class="btn-sim" id="ctrlResetTrapBtn" style="flex: 1; font-size: 0.76rem; padding: 8px 4px;">Reset Pintu Terbuka</button>
                             </div>
                             <button class="btn-sim btn-accent" id="ctrlEmptyTrapBtn" style="width: 100%; display: none; background-color: var(--dash-accent); color: #0f111a; font-weight: bold;">Keluarkan Tikus &amp; Reset Perangkap (Fisik)</button>
                         </div>
                         <div style="font-size: 0.72rem; color: var(--dash-text-muted); margin-top: 4px;">
-                            Meniru input sensor perangkap. Tombol kuning akan muncul jika perangkap penuh (maks 5 tikus) untuk mengeluarkan tikus secara fisik.
+                            Meniru sensor perangkap. Simulasi Tikus Lepas memicu timeout 5 menit (5 detik simulasi) &amp; buzzer otomatis menyala pada menit ke-3.
                         </div>
                     </div>
 
