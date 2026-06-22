@@ -1,6 +1,15 @@
 // === GLOBAL SIMULATION VARIABLES ===
 let lastLowBatNotif = 0;
 
+// === RAT PROPERTIES ARRAY ===
+let rats = [
+    { x: 60, y: 220, targetX: 60, targetY: 220, width: 22, height: 14, speed: 1.5, state: "idle", direction: 1 },
+    { x: 100, y: 220, targetX: 100, targetY: 220, width: 20, height: 13, speed: 1.3, state: "trapped", direction: -1 },
+    { x: 130, y: 220, targetX: 130, targetY: 220, width: 24, height: 15, speed: 1.1, state: "trapped", direction: 1 },
+    { x: 160, y: 220, targetX: 160, targetY: 220, width: 21, height: 13, speed: 1.4, state: "trapped", direction: -1 },
+    { x: 180, y: 220, targetX: 180, targetY: 220, width: 23, height: 14, speed: 1.2, state: "trapped", direction: 1 }
+];
+
 // === VIRTUAL DATABASE STATE ===
 let firebaseState = {
     status: {
@@ -95,7 +104,7 @@ function syncUI() {
     
     // Highlight door state
     const pintuSpan = document.getElementById("viewStatusPintu");
-    if (firebaseState.status.pintu === "Tikus Tertangkap" || firebaseState.status.pintu === "Tertutup") {
+    if (firebaseState.status.pintu.includes("Tertangkap") || firebaseState.status.pintu.includes("Penuh") || firebaseState.status.pintu === "Tertutup") {
         pintuSpan.style.color = "var(--color-red)";
         if (wfTrapPintuText) {
             wfTrapPintuText.textContent = `Pintu: ${firebaseState.status.pintu}`;
@@ -106,6 +115,28 @@ function syncUI() {
         if (wfTrapPintuText) {
             wfTrapPintuText.textContent = `Pintu: Terbuka`;
             wfTrapPintuText.style.fill = "var(--color-green)";
+        }
+    }
+
+    // Sync Physical Controller buttons based on connectivity and catch count (max 5)
+    const ctrlCatchBtn = document.getElementById("ctrlCatchBtn");
+    const ctrlResetTrapBtn = document.getElementById("ctrlResetTrapBtn");
+    const ctrlEmptyTrapBtn = document.getElementById("ctrlEmptyTrapBtn");
+    
+    if (!firebaseState.status.online) {
+        if (ctrlCatchBtn) ctrlCatchBtn.disabled = true;
+        if (ctrlResetTrapBtn) ctrlResetTrapBtn.disabled = true;
+        if (ctrlEmptyTrapBtn) ctrlEmptyTrapBtn.disabled = true;
+    } else {
+        if (ctrlResetTrapBtn) ctrlResetTrapBtn.disabled = false;
+        if (ctrlEmptyTrapBtn) ctrlEmptyTrapBtn.disabled = false;
+        
+        if (firebaseState.status.tikusDitangkap >= 5) {
+            if (ctrlCatchBtn) ctrlCatchBtn.disabled = true;
+            if (ctrlEmptyTrapBtn) ctrlEmptyTrapBtn.style.display = "block";
+        } else {
+            if (ctrlCatchBtn) ctrlCatchBtn.disabled = false;
+            if (ctrlEmptyTrapBtn) ctrlEmptyTrapBtn.style.display = "none";
         }
     }
 
@@ -517,19 +548,31 @@ function setupSimulatorControls() {
         document.getElementById("workflowStatusDesc").textContent = "Alat Offline. Koneksi jaringan terputus.";
     });
     
-    // 2. Simulate Mouse Caught Button
+    // 2. Simulate Rat Caught Button
     document.getElementById("ctrlCatchBtn").addEventListener("click", () => {
         if (!firebaseState.status.online) {
             alert("Harap hubungkan alat secara ONLINE terlebih dahulu untuk mengirim status tikus ditangkap.");
             return;
         }
 
+        if (firebaseState.status.tikusDitangkap >= 5) {
+            alert("Perangkap sudah penuh! Silakan keluarkan tikus terlebih dahulu secara fisik.");
+            return;
+        }
+
         // Simulate trap triggered
-        firebaseState.status.pintu = "Tikus Tertangkap";
         firebaseState.status.tikusDitangkap += 1;
+        const activeSesi = firebaseState.status.sesi;
+
+        if (firebaseState.status.tikusDitangkap >= 5) {
+            firebaseState.status.pintu = "Tikus Tertangkap (Penuh)";
+            firebaseState.notifikasi = `Awas! Perangkap PENUH! 5 Tikus Tertangkap di Sesi ${activeSesi}. Segera keluarkan tikus!`;
+        } else {
+            firebaseState.status.pintu = "Tikus Tertangkap";
+            firebaseState.notifikasi = `Awas! Tikus ke-${firebaseState.status.tikusDitangkap} tertangkap di Sesi ${activeSesi}!`;
+        }
         
         // Add log entry to the active session history array
-        const activeSesi = firebaseState.status.sesi;
         let session = sessionHistory.find(s => s.sesiKe === activeSesi);
         
         if (!session) {
@@ -540,8 +583,6 @@ function setupSimulatorControls() {
         const now = Date.now();
         session.entries.push({ status_pintu: "Tikus Tertangkap", tikus_ke: firebaseState.status.tikusDitangkap, waktu: now });
         session.entries.push({ status_pintu: "Pintu Tertutup", tikus_ke: firebaseState.status.tikusDitangkap, waktu: now - 1500 });
-        
-        firebaseState.notifikasi = `Awas! Tikus ke-${firebaseState.status.tikusDitangkap} tertangkap di Sesi ${activeSesi}!`;
 
         syncUI();
         updateDatabaseViewer();
@@ -549,6 +590,48 @@ function setupSimulatorControls() {
         // Trigger workflow pulses
         triggerWorkflowPulse("trap_to_app", () => {
             showLocalNotification("Perangkap Tikus", firebaseState.notifikasi);
+        });
+    });
+
+    // 2.5 Keluarkan Tikus & Reset Perangkap (Physical action outside the app)
+    document.getElementById("ctrlEmptyTrapBtn").addEventListener("click", () => {
+        if (!firebaseState.status.online) {
+            alert("Harap hubungkan alat secara ONLINE terlebih dahulu.");
+            return;
+        }
+
+        const currentSesi = firebaseState.status.sesi;
+        const nextSesi = currentSesi + 1;
+
+        // Reset positions of the rats
+        rats[0].x = 60;
+        rats[0].targetX = 60;
+        rats[0].state = "idle";
+        for (let i = 1; i < rats.length; i++) {
+            rats[i].x = 95 + Math.random() * 90;
+            rats[i].targetX = rats[i].x;
+            rats[i].state = "trapped";
+        }
+
+        // Advance to next session
+        firebaseState.status.sesi = nextSesi;
+        firebaseState.status.tikusDitangkap = 0;
+        firebaseState.status.pintu = "Terbuka";
+        
+        // Add new session in history
+        let session = { sesiKe: nextSesi, entries: [] };
+        sessionHistory.push(session);
+        const now = Date.now();
+        session.entries.push({ status_pintu: "Pintu Terbuka", tikus_ke: 0, waktu: now });
+
+        firebaseState.notifikasi = `Sesi ${nextSesi} dimulai. Perangkap telah dikosongkan secara fisik.`;
+
+        syncUI();
+        updateDatabaseViewer();
+        showToast(`Tikus dikeluarkan! Sesi ${nextSesi} aktif.`);
+
+        triggerWorkflowPulse("trap_to_app", () => {
+            showLocalNotification("Perangkap Tikus", `Sesi Baru ${nextSesi} Dimulai. Pintu Terbuka.`);
         });
     });
 
@@ -669,19 +752,6 @@ function setupCameraSimulation() {
     const ctx = canvas.getContext("2d");
     const flashOverlay = document.getElementById("flashOverlay");
     
-    // Mouse properties
-    let mouse = {
-        x: 60,
-        y: 220,
-        targetX: 60,
-        targetY: 220,
-        width: 22,
-        height: 14,
-        speed: 1.5,
-        state: "idle", // "idle", "sniffing", "trapped", "scared"
-        direction: 1 // 1 for right, -1 for left
-    };
-    
     // Snapping door coordinates
     let doorHeight = 0; // 0 open, 50 closed
     
@@ -749,9 +819,19 @@ function setupCameraSimulation() {
         // Draw Cage/Trap Graphics
         drawTrapStructure();
         
-        // Update Mouse AI & Animation
-        updateMouseAI();
-        drawMouse();
+        // Update Rat AI & Animation for active rats
+        if (firebaseState.status.tikusDitangkap === 0) {
+            // 1 rat sniffing outside
+            updateRatAI(rats[0], 0);
+            drawRat(rats[0]);
+        } else {
+            // up to 5 rats caught inside
+            const caughtCount = Math.min(firebaseState.status.tikusDitangkap, 5);
+            for (let i = 0; i < caughtCount; i++) {
+                updateRatAI(rats[i], i);
+                drawRat(rats[i]);
+            }
+        }
         
         // Request next frame
         requestAnimationFrame(renderLoop);
@@ -922,75 +1002,74 @@ function setupCameraSimulation() {
         }
     }
 
-    // Update Mouse movement and state machine
-    function updateMouseAI() {
+    // Update Rat movement and state machine
+    function updateRatAI(rat, index) {
         const floorLevel = 220;
-        const cageLeft = 90;
-        const cageRight = 225;
+        const cageLeft = 95;
+        const cageRight = 220;
         
-        // Scare behavior if Buzzer is ON
+        // Scare behavior if Buzzer is ON and trap is closed
         if (firebaseState.control.buzzer && firebaseState.status.pintu !== "Terbuka") {
-            mouse.state = "scared";
-            mouse.speed = 3.5; // frantic running
-        } else if (firebaseState.status.pintu === "Tikus Tertangkap" || firebaseState.status.pintu === "Tertutup") {
-            mouse.state = "trapped";
-            mouse.speed = 1.0;
+            rat.state = "scared";
+            rat.speed = 3.2; // frantic running
+        } else if (firebaseState.status.pintu.includes("Tertangkap") || firebaseState.status.pintu.includes("Penuh") || firebaseState.status.pintu === "Tertutup") {
+            rat.state = "trapped";
+            rat.speed = 1.0;
         } else {
-            mouse.state = "sniffing";
-            mouse.speed = 1.2;
+            rat.state = "sniffing";
+            rat.speed = 1.2;
         }
 
         // Logic based on state
-        if (mouse.state === "sniffing") {
+        if (rat.state === "sniffing") {
             // Sniffing around, heading toward cheese bait (middle-right of cage)
-            mouse.targetX = cheese.x - 10;
-            mouse.targetY = floorLevel;
+            rat.targetX = cheese.x - 10 - (index * 8); // stack slightly
+            rat.targetY = floorLevel;
 
-            // Move mouse horizontally towards target
-            if (Math.abs(mouse.x - mouse.targetX) > 5) {
-                mouse.direction = mouse.x < mouse.targetX ? 1 : -1;
-                mouse.x += mouse.speed * mouse.direction;
+            // Move rat horizontally towards target
+            if (Math.abs(rat.x - rat.targetX) > 5) {
+                rat.direction = rat.x < rat.targetX ? 1 : -1;
+                rat.x += rat.speed * rat.direction;
             } else {
-                // Nose sniffs at cheese
-                mouse.x = mouse.targetX;
+                rat.x = rat.targetX;
                 // Idle wiggle
-                mouse.x += Math.sin(Date.now() / 100) * 0.5;
+                rat.x += Math.sin(Date.now() / 100 + index) * 0.5;
             }
         } 
-        else if (mouse.state === "trapped") {
+        else if (rat.state === "trapped") {
             // Trapped inside, pacing back and forth inside the cage
-            if (mouse.targetX === cheese.x - 10 || Math.abs(mouse.x - mouse.targetX) < 10) {
+            if (rat.targetX === cheese.x - 10 || Math.abs(rat.x - rat.targetX) < 10) {
                 // Pick a new random point inside cage boundaries
-                mouse.targetX = cageLeft + Math.random() * (cageRight - cageLeft - 30);
+                rat.targetX = cageLeft + Math.random() * (cageRight - cageLeft - 30);
             }
             
-            mouse.direction = mouse.x < mouse.targetX ? 1 : -1;
-            mouse.x += mouse.speed * mouse.direction;
+            rat.direction = rat.x < rat.targetX ? 1 : -1;
+            rat.x += rat.speed * rat.direction;
         } 
-        else if (mouse.state === "scared") {
+        else if (rat.state === "scared") {
             // Frantic vibration and running left to right hitting walls
-            if (mouse.targetX === cheese.x - 10 || Math.abs(mouse.x - mouse.targetX) < 10) {
+            if (rat.targetX === cheese.x - 10 || Math.abs(rat.x - rat.targetX) < 10) {
                 // oscillate quickly between left and right walls
-                mouse.targetX = mouse.x < 150 ? cageRight - 20 : cageLeft + 5;
+                rat.targetX = rat.x < 150 ? cageRight - 15 : cageLeft + 5;
             }
-            mouse.direction = mouse.x < mouse.targetX ? 1 : -1;
-            mouse.x += mouse.speed * mouse.direction;
+            rat.direction = rat.x < rat.targetX ? 1 : -1;
+            rat.x += rat.speed * rat.direction;
             
             // Scared vibration offset vertical
-            mouse.y = floorLevel + (Math.random() - 0.5) * 3;
+            rat.y = floorLevel + (Math.random() - 0.5) * 3;
             return; // skip normal y positioning
         }
         
-        mouse.y = floorLevel;
+        rat.y = floorLevel;
     }
 
-    // Render mouse graphics on Canvas
-    function drawMouse() {
+    // Render rat graphics on Canvas
+    function drawRat(rat) {
         ctx.save();
         
         // Position and mirror tail/ears depending on direction
-        ctx.translate(mouse.x, mouse.y);
-        if (mouse.direction === -1) {
+        ctx.translate(rat.x, rat.y);
+        if (rat.direction === -1) {
             ctx.scale(-1, 1);
         }
 
@@ -1000,14 +1079,14 @@ function setupCameraSimulation() {
         ctx.beginPath();
         ctx.moveTo(-10, -2);
         // Animate tail wiggle
-        const tailOffset = Math.sin(Date.now() / (mouse.state === "scared" ? 50 : 200)) * 6;
+        const tailOffset = Math.sin(Date.now() / (rat.state === "scared" ? 50 : 200)) * 6;
         ctx.bezierCurveTo(-15, -6 + tailOffset, -20, -2 - tailOffset, -24, -6);
         ctx.stroke();
 
         // Mouse Body (Grey oval)
         ctx.fillStyle = "#757575"; // Grey fur
         ctx.beginPath();
-        ctx.ellipse(0, -5, mouse.width / 2, mouse.height / 2, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, -5, rat.width / 2, rat.height / 2, 0, 0, Math.PI * 2);
         ctx.fill();
 
         // Ears (light pink centers)
@@ -1022,7 +1101,7 @@ function setupCameraSimulation() {
         // Snout / Nose (pink dot)
         ctx.fillStyle = "#ffab91";
         ctx.beginPath();
-        ctx.arc(mouse.width/2 + 1, -4, 2, 0, Math.PI*2);
+        ctx.arc(rat.width/2 + 1, -4, 2, 0, Math.PI*2);
         ctx.fill();
 
         // Eye (black dot)
@@ -1032,7 +1111,7 @@ function setupCameraSimulation() {
         ctx.fill();
         
         // Sweat droplets if scared
-        if (mouse.state === "scared") {
+        if (rat.state === "scared") {
             ctx.fillStyle = "#29b6f6"; // Blue drops
             ctx.beginPath();
             ctx.arc(-5, -16, 1.5, 0, Math.PI * 2);

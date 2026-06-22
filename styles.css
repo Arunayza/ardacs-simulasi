@@ -997,6 +997,12 @@ input:checked + .slider::before {
     gap: 8px;
 }
 
+.btn-sim:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 .btn-sim:hover {
     background-color: var(--dash-surface-hover);
     border-color: var(--dash-accent);

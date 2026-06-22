@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ardacs - Interactive IoT Mouse Trap Simulator</title>
+    <title>Ardacs - Interactive IoT Rat Trap Simulator</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -274,12 +274,15 @@
                     <!-- 2. Trap Status Simulator -->
                     <div class="control-item">
                         <span class="control-item-title">2. Sensor Fisik Perangkap</span>
-                        <div class="btn-group">
-                            <button class="btn-sim btn-primary" id="ctrlCatchBtn">Simulasikan Tikus Masuk</button>
-                            <button class="btn-sim" id="ctrlResetTrapBtn">Reset Pintu Terbuka</button>
+                        <div class="btn-group" style="flex-direction: column; gap: 8px;">
+                            <div style="display: flex; gap: 8px; width: 100%;">
+                                <button class="btn-sim btn-primary" id="ctrlCatchBtn" style="flex: 1;">Simulasikan Tikus Masuk</button>
+                                <button class="btn-sim" id="ctrlResetTrapBtn" style="flex: 1;">Reset Pintu Terbuka</button>
+                            </div>
+                            <button class="btn-sim btn-accent" id="ctrlEmptyTrapBtn" style="width: 100%; display: none; background-color: var(--dash-accent); color: #0f111a; font-weight: bold;">Keluarkan Tikus &amp; Reset Perangkap (Fisik)</button>
                         </div>
-                        <div style="font-size: 0.72rem; color: var(--dash-text-muted);">
-                            Meniru input sensor batas/mikro-sakelar pada perangkap ketika tikus memicu pintu.
+                        <div style="font-size: 0.72rem; color: var(--dash-text-muted); margin-top: 4px;">
+                            Meniru input sensor perangkap. Tombol kuning akan muncul jika perangkap penuh (maks 5 tikus) untuk mengeluarkan tikus secara fisik.
                         </div>
                     </div>
 
@@ -341,7 +344,7 @@
                             <!-- Node A: Perangkap Tikus (ESP8266 & ESP32) -->
                             <g id="wfNodeTrap">
                                 <rect class="node-box" x="15" y="50" width="140" height="110"/>
-                                <text class="node-title" x="85" y="70">Smart Mouse Trap</text>
+                                <text class="node-title" x="85" y="70">Smart Rat Trap</text>
                                 <text class="node-text" x="85" y="92">Hardware (ESP8266)</text>
                                 <text class="node-text" x="85" y="108">Kamera (ESP32-CAM)</text>
                                 <text class="node-text" x="85" y="128" id="wfTrapPintuText" style="fill: var(--dash-accent); font-weight: bold;">Pintu: Terbuka</text>

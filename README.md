@@ -1,6 +1,6 @@
 # Ardacs - Interactive Web Simulation
 
-A standalone, interactive frontend-only simulation of the **Ardacs (Arduino Mouse Trap Client)** IoT application. This simulator is designed to demonstrate the complete workflow between the physical mouse trap, Firebase Realtime Database, and the Android mobile app, all running directly in the browser with dummy data.
+A standalone, interactive frontend-only simulation of the **Ardacs (Arduino Rat Trap Client)** IoT application. This simulator is designed to demonstrate the complete workflow between the physical rat trap, Firebase Realtime Database, and the Android mobile app, all running directly in the browser with dummy data.
 
 ## 🚀 Fitur Utama Simulasi
 
@@ -21,7 +21,7 @@ A standalone, interactive frontend-only simulation of the **Ardacs (Arduino Mous
    - **Visualizer Buzzer**: Indikator equalizer suara yang bergerak dinamis saat buzzer diaktifkan dari HP.
 
 3. **Dynamic Workflow Diagram (SVG)**
-   - Alur komunikasi dinamis yang menghubungkan **Smart Mouse Trap (ESP8266/ESP32-CAM)** &harr; **Firebase RTDB** &harr; **Android App**.
+   - Alur komunikasi dinamis yang menghubungkan **Smart Rat Trap (ESP8266/ESP32-CAM)** &harr; **Firebase RTDB** &harr; **Android App**.
    - Jalur data akan berkedip/berdenyut (*pulse animation*) secara real-time mengikuti arah pertukaran data saat Anda melakukan aksi (misal: menekan tombol buzzer, menyalakan kamera, atau menyimulasikan tikus masuk).
 
 4. **Virtual Firebase RTDB Viewer**
